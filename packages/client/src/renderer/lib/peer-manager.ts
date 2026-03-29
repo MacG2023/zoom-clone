@@ -1,10 +1,10 @@
-import SimplePeer from 'simple-peer';
 import { sendSignal } from './socket-client';
 
 export interface PeerConnection {
   peerId: string;
   displayName: string;
-  peer: SimplePeer.Instance;
+  pc: RTCPeerConnection;
+  dataChannel: RTCDataChannel | null;
   stream: MediaStream | null;
 }
 
@@ -14,7 +14,7 @@ type PeerEventCallback = {
   onData: (peerId: string, data: unknown) => void;
 };
 
-const ICE_SERVERS = [
+const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
@@ -31,90 +31,149 @@ export class PeerManager {
   setLocalStream(stream: MediaStream): void {
     this.localStream = stream;
     this.peers.forEach((conn) => {
-      if (this.localStream) {
-        const videoTrack = this.localStream.getVideoTracks()[0];
-        const audioTrack = this.localStream.getAudioTracks()[0];
-        const senders = (conn.peer as any)._pc?.getSenders?.();
-        if (senders) {
-          senders.forEach((sender: RTCRtpSender) => {
-            if (sender.track?.kind === 'video' && videoTrack) {
-              sender.replaceTrack(videoTrack);
-            } else if (sender.track?.kind === 'audio' && audioTrack) {
-              sender.replaceTrack(audioTrack);
-            }
-          });
+      const senders = conn.pc.getSenders();
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
+      senders.forEach((sender) => {
+        if (sender.track?.kind === 'video' && videoTrack) {
+          sender.replaceTrack(videoTrack);
+        } else if (sender.track?.kind === 'audio' && audioTrack) {
+          sender.replaceTrack(audioTrack);
         }
-      }
+      });
     });
   }
 
-  createPeer(peerId: string, displayName: string, initiator: boolean): void {
+  async createPeer(peerId: string, displayName: string, initiator: boolean): Promise<void> {
     if (this.peers.has(peerId)) return;
 
-    const peer = new SimplePeer({
-      initiator,
-      stream: this.localStream || undefined,
-      trickle: true,
-      config: { iceServers: ICE_SERVERS },
-    });
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
     const connection: PeerConnection = {
       peerId,
       displayName,
-      peer,
+      pc,
+      dataChannel: null,
       stream: null,
     };
 
-    peer.on('signal', (signalData) => {
-      sendSignal(peerId, signalData);
-    });
+    // Add local tracks
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, this.localStream!);
+      });
+    }
 
-    peer.on('stream', (remoteStream) => {
-      connection.stream = remoteStream;
-      this.callbacks.onStream(peerId, remoteStream);
-    });
-
-    peer.on('data', (data) => {
-      try {
-        const parsed = JSON.parse(data.toString());
-        this.callbacks.onData(peerId, parsed);
-      } catch {
-        // Ignore malformed data
+    // ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        sendSignal(peerId, { type: 'ice-candidate', candidate: event.candidate });
       }
-    });
+    };
 
-    peer.on('close', () => {
-      this.peers.delete(peerId);
-      this.callbacks.onClose(peerId);
-    });
+    // Remote stream
+    pc.ontrack = (event) => {
+      if (event.streams[0]) {
+        connection.stream = event.streams[0];
+        this.callbacks.onStream(peerId, event.streams[0]);
+      }
+    };
 
-    peer.on('error', (err) => {
-      console.error(`Peer ${peerId} error:`, err);
-      this.peers.delete(peerId);
-      this.callbacks.onClose(peerId);
-    });
+    // Connection state
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        this.peers.delete(peerId);
+        this.callbacks.onClose(peerId);
+      }
+    };
+
+    // Data channel
+    if (initiator) {
+      const dc = pc.createDataChannel('control');
+      connection.dataChannel = dc;
+      this.setupDataChannel(dc, peerId);
+
+      // Create and send offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignal(peerId, { type: 'offer', sdp: pc.localDescription });
+    } else {
+      pc.ondatachannel = (event) => {
+        connection.dataChannel = event.channel;
+        this.setupDataChannel(event.channel, peerId);
+      };
+    }
 
     this.peers.set(peerId, connection);
   }
 
-  handleSignal(peerId: string, signalData: unknown): void {
-    const connection = this.peers.get(peerId);
-    if (connection) {
-      connection.peer.signal(signalData as SimplePeer.SignalData);
+  private setupDataChannel(dc: RTCDataChannel, peerId: string): void {
+    dc.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        this.callbacks.onData(peerId, parsed);
+      } catch {
+        // Ignore malformed data
+      }
+    };
+  }
+
+  async handleSignal(peerId: string, signalData: any): Promise<void> {
+    let connection = this.peers.get(peerId);
+
+    try {
+      if (signalData.type === 'offer') {
+        if (connection) {
+          // If we already have a connection and it's not stable, close and recreate
+          if (connection.pc.signalingState !== 'stable') {
+            connection.pc.close();
+            this.peers.delete(peerId);
+            connection = undefined;
+          } else {
+            // We have a stable connection but received an offer — this is a glare situation
+            // Close existing and accept the new offer
+            connection.pc.close();
+            this.peers.delete(peerId);
+            connection = undefined;
+          }
+        }
+
+        if (!connection) {
+          await this.createPeer(peerId, 'Peer', false);
+          connection = this.peers.get(peerId);
+        }
+        if (!connection) return;
+
+        await connection.pc.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+        const answer = await connection.pc.createAnswer();
+        await connection.pc.setLocalDescription(answer);
+        sendSignal(peerId, { type: 'answer', sdp: connection.pc.localDescription });
+      } else if (signalData.type === 'answer') {
+        if (!connection) return;
+        if (connection.pc.signalingState !== 'have-local-offer') return; // Ignore stale answers
+        await connection.pc.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+      } else if (signalData.type === 'ice-candidate') {
+        if (!connection) return;
+        if (connection.pc.remoteDescription) {
+          await connection.pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+        }
+      }
+    } catch (err) {
+      console.error(`Signal handling error for ${peerId}:`, err);
     }
   }
 
   sendData(peerId: string, data: unknown): void {
     const connection = this.peers.get(peerId);
-    if (connection && connection.peer.connected) {
-      connection.peer.send(JSON.stringify(data));
+    if (connection?.dataChannel?.readyState === 'open') {
+      connection.dataChannel.send(JSON.stringify(data));
     }
   }
 
   broadcastData(data: unknown): void {
     this.peers.forEach((conn) => {
-      if (conn.peer.connected) {
-        conn.peer.send(JSON.stringify(data));
+      if (conn.dataChannel?.readyState === 'open') {
+        conn.dataChannel.send(JSON.stringify(data));
       }
     });
   }
@@ -122,7 +181,7 @@ export class PeerManager {
   removePeer(peerId: string): void {
     const connection = this.peers.get(peerId);
     if (connection) {
-      connection.peer.destroy();
+      connection.pc.close();
       this.peers.delete(peerId);
     }
   }
@@ -133,20 +192,15 @@ export class PeerManager {
 
   replaceTrackOnAll(track: MediaStreamTrack): void {
     this.peers.forEach((conn) => {
-      const senders = (conn.peer as any)._pc?.getSenders?.();
-      if (senders) {
-        const sender = senders.find(
-          (s: RTCRtpSender) => s.track?.kind === track.kind
-        );
-        if (sender) {
-          sender.replaceTrack(track);
-        }
+      const sender = conn.pc.getSenders().find((s) => s.track?.kind === track.kind);
+      if (sender) {
+        sender.replaceTrack(track);
       }
     });
   }
 
   destroyAll(): void {
-    this.peers.forEach((conn) => conn.peer.destroy());
+    this.peers.forEach((conn) => conn.pc.close());
     this.peers.clear();
   }
 }

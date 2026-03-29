@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm test:*)",
+      "Bash(npm search:*)",
+      "Bash(npm view:*)",
+      "Bash(npx electron-vite:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s \"http://localhost:5173/index.tsx\")",
+      "Bash(curl -s \"http://localhost:5173/components/HomeScreen.tsx\")",
+      "Bash(curl -s \"http://localhost:5173/lib/peer-manager.ts\")",
+      "Bash(taskkill //F //IM electron.exe)",
+      "Bash(curl -s \"http://localhost:5173/components/HomeScreen.module.css\")",
+      "Bash(curl:*)",
+      "Bash(ELECTRON_RENDERER_URL=http://localhost:5174 npx electron-vite dev)",
+      "Bash(ELECTRON_RENDERER_URL=http://localhost:5173 npx electron --user-data-dir=/tmp/zoom-clone-2 out/main/index.js)",
+      "Bash(npx electron:*)",
+      "Bash(rm:*)"
+    ]
+  }
+}

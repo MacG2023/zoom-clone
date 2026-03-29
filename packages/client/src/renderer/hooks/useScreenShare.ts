@@ -3,7 +3,10 @@ import type { PeerManager } from '../lib/peer-manager';
 
 interface UseScreenShareResult {
   isSharing: boolean;
-  startSharing: () => Promise<void>;
+  showPicker: boolean;
+  openPicker: () => void;
+  closePicker: () => void;
+  selectSource: (sourceId: string) => Promise<void>;
   stopSharing: () => void;
 }
 
@@ -12,25 +15,33 @@ export function useScreenShare(
   originalStream: MediaStream | null
 ): UseScreenShareResult {
   const [isSharing, setIsSharing] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const screenStreamRef = useRef<MediaStream | null>(null);
 
-  const startSharing = useCallback(async () => {
+  const openPicker = useCallback(() => {
     if (!peerManager) return;
+    setShowPicker(true);
+  }, [peerManager]);
 
-    const sources = await window.electronAPI?.getDesktopSources();
-    if (!sources || sources.length === 0) return;
+  const closePicker = useCallback(() => {
+    setShowPicker(false);
+  }, []);
 
-    const sourceId = sources[0].id;
+  const selectSource = useCallback(async (sourceId: string) => {
+    if (!peerManager) return;
+    setShowPicker(false);
 
     try {
-      const screenStream = await (navigator.mediaDevices as any).getUserMedia({
+      const screenStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: sourceId,
+            minWidth: 1280,
+            minHeight: 720,
           },
-        },
+        } as any,
       });
 
       screenStreamRef.current = screenStream;
@@ -64,5 +75,5 @@ export function useScreenShare(
     setIsSharing(false);
   }, [peerManager, originalStream]);
 
-  return { isSharing, startSharing, stopSharing };
+  return { isSharing, showPicker, openPicker, closePicker, selectSource, stopSharing };
 }

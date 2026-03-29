@@ -26,9 +26,14 @@ export function usePeerManager(
   useEffect(() => {
     const manager = new PeerManager({
       onStream: (peerId, stream) => {
-        setRemotePeers((prev) =>
-          prev.map((p) => (p.peerId === peerId ? { ...p, stream } : p))
-        );
+        setRemotePeers((prev) => {
+          // If peer isn't in the list yet (created via handleSignal), add it
+          const exists = prev.some((p) => p.peerId === peerId);
+          if (!exists) {
+            return [...prev, { peerId, displayName: 'Peer', stream }];
+          }
+          return prev.map((p) => (p.peerId === peerId ? { ...p, stream } : p));
+        });
       },
       onClose: (peerId) => {
         setRemotePeers((prev) => prev.filter((p) => p.peerId !== peerId));

@@ -4,6 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ZoomClone</title>
+  <script>
+    // Polyfills for Node.js modules used by simple-peer
+    if (typeof globalThis.process === 'undefined') {
+      globalThis.process = {
+        env: {},
+        browser: true,
+        nextTick: function(fn) { setTimeout(fn, 0); },
+        stdout: null,
+        stderr: null,
+        version: '',
+        platform: 'browser',
+      };
+    }
+  </script>
 </head>
 <body>
   <div id="root"></div>

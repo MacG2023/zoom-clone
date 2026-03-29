@@ -8,6 +8,7 @@ import { ScreenShareView } from './ScreenShareView';
 import { Toolbar } from './Toolbar';
 import { RemoteControlOverlay } from './RemoteControlOverlay';
 import { ToastContainer, useToasts } from './Toast';
+import { ScreenPicker } from './ScreenPicker';
 import { leaveRoom } from '../lib/socket-client';
 import {
   createMouseMoveEvent,
@@ -101,7 +102,7 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
   remotePeersRef.current = remotePeers;
   peerManagerRef.current = peerManager;
 
-  const { isSharing, startSharing, stopSharing } = useScreenShare(peerManager, stream);
+  const { isSharing, showPicker, openPicker, closePicker, selectSource, stopSharing } = useScreenShare(peerManager, stream);
 
   const onPeerJoined = useCallback((peer: PeerInfo) => {
     addPeer(peer, true);
@@ -123,11 +124,8 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
   }, [removePeer, addToast, remotePeers, controllerId, controlTargetId]);
 
   const onSignal = useCallback((fromPeerId: string, signalData: unknown) => {
-    if (!remotePeers.some((p) => p.peerId === fromPeerId)) {
-      addPeer({ id: fromPeerId, displayName: 'Peer' }, false);
-    }
     handleSignal(fromPeerId, signalData);
-  }, [remotePeers, addPeer, handleSignal]);
+  }, [handleSignal]);
 
   const { connected, error } = useSocket({
     meetingId,
@@ -148,7 +146,7 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
     if (isSharing) {
       stopSharing();
     } else {
-      startSharing();
+      openPicker();
     }
   };
 
@@ -253,6 +251,13 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
       />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {showPicker && (
+        <ScreenPicker
+          onSelect={selectSource}
+          onCancel={closePicker}
+        />
+      )}
     </div>
   );
 }
