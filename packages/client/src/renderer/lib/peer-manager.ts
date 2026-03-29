@@ -17,26 +17,24 @@ type PeerEventCallback = {
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // Free TURN servers from Open Relay (metered.ca)
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  // Open Relay TURN servers (free, community-provided)
   {
-    urls: 'turn:a.relay.metered.ca:80',
-    username: 'e8dd65b92f6de1da0c7b3c70',
-    credential: 'uWdEfsPqS3OUFHGX',
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
   },
   {
-    urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-    username: 'e8dd65b92f6de1da0c7b3c70',
-    credential: 'uWdEfsPqS3OUFHGX',
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
   },
   {
-    urls: 'turn:a.relay.metered.ca:443',
-    username: 'e8dd65b92f6de1da0c7b3c70',
-    credential: 'uWdEfsPqS3OUFHGX',
-  },
-  {
-    urls: 'turns:a.relay.metered.ca:443',
-    username: 'e8dd65b92f6de1da0c7b3c70',
-    credential: 'uWdEfsPqS3OUFHGX',
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
   },
 ];
 
@@ -44,6 +42,7 @@ export class PeerManager {
   private peers = new Map<string, PeerConnection>();
   private localStream: MediaStream | null = null;
   private callbacks: PeerEventCallback;
+  private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 
   constructor(callbacks: PeerEventCallback) {
     this.callbacks = callbacks;
@@ -138,6 +137,21 @@ export class PeerManager {
     this.peers.set(peerId, connection);
   }
 
+  private async flushCandidates(peerId: string, pc: RTCPeerConnection): Promise<void> {
+    const candidates = this.pendingCandidates.get(peerId);
+    if (candidates && candidates.length > 0) {
+      console.log(`[WebRTC] Flushing ${candidates.length} queued ICE candidates for ${peerId}`);
+      for (const candidate of candidates) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.error('Failed to add queued ICE candidate:', err);
+        }
+      }
+      this.pendingCandidates.delete(peerId);
+    }
+  }
+
   private setupDataChannel(dc: RTCDataChannel, peerId: string): void {
     dc.onmessage = (event) => {
       try {
@@ -176,16 +190,25 @@ export class PeerManager {
         if (!connection) return;
 
         await connection.pc.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+        // Flush any queued ICE candidates
+        await this.flushCandidates(peerId, connection.pc);
         const answer = await connection.pc.createAnswer();
         await connection.pc.setLocalDescription(answer);
         sendSignal(peerId, { type: 'answer', sdp: connection.pc.localDescription });
       } else if (signalData.type === 'answer') {
         if (!connection) return;
-        if (connection.pc.signalingState !== 'have-local-offer') return; // Ignore stale answers
+        if (connection.pc.signalingState !== 'have-local-offer') return;
         await connection.pc.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+        // Flush any queued ICE candidates
+        await this.flushCandidates(peerId, connection.pc);
       } else if (signalData.type === 'ice-candidate') {
-        if (!connection) return;
-        if (connection.pc.remoteDescription) {
+        if (!connection || !connection.pc.remoteDescription) {
+          // Queue candidate — remote description not set yet
+          const queue = this.pendingCandidates.get(peerId) || [];
+          queue.push(signalData.candidate);
+          this.pendingCandidates.set(peerId, queue);
+          console.log(`[WebRTC] Queued ICE candidate for ${peerId} (${queue.length} pending)`);
+        } else {
           await connection.pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         }
       }
