@@ -36,26 +36,29 @@ app.on('open-url', (_event, url) => {
   }
 });
 
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (_event, commandLine) => {
-    const url = commandLine.find((arg) => arg.startsWith('zoomclone://'));
-    if (url) {
-      const meetingId = extractMeetingId(url);
-      if (meetingId && mainWindow) {
-        mainWindow.webContents.send('deep-link', meetingId);
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.focus();
+// Only enforce single-instance in production (packaged app)
+if (!process.env.ELECTRON_RENDERER_URL) {
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', (_event, commandLine) => {
+      const url = commandLine.find((arg) => arg.startsWith('zoomclone://'));
+      if (url) {
+        const meetingId = extractMeetingId(url);
+        if (meetingId && mainWindow) {
+          mainWindow.webContents.send('deep-link', meetingId);
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.focus();
+        }
       }
-    }
-  });
-
-  app.whenReady().then(() => {
-    createWindow();
-  });
+    });
+  }
 }
+
+app.whenReady().then(() => {
+  createWindow();
+});
 setupRemoteControlExecutor();
 
 app.on('window-all-closed', () => {

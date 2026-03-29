@@ -192,7 +192,21 @@ export class PeerManager {
 
   replaceTrackOnAll(track: MediaStreamTrack): void {
     this.peers.forEach((conn) => {
-      const sender = conn.pc.getSenders().find((s) => s.track?.kind === track.kind);
+      const senders = conn.pc.getSenders();
+      // Find sender by matching track kind, or find a sender with no track (stopped video)
+      let sender = senders.find((s) => s.track?.kind === track.kind);
+      if (!sender && track.kind === 'video') {
+        // If video track was stopped, find the video sender by checking transceiver
+        const transceivers = conn.pc.getTransceivers();
+        const videoTransceiver = transceivers.find((t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video');
+        if (videoTransceiver) {
+          sender = videoTransceiver.sender;
+        } else {
+          // No video transceiver exists — add the track directly
+          conn.pc.addTrack(track, this.localStream!);
+          return;
+        }
+      }
       if (sender) {
         sender.replaceTrack(track);
       }

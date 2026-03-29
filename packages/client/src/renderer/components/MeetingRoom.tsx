@@ -5,6 +5,7 @@ import { usePeerManager } from '../hooks/usePeerManager';
 import { useScreenShare } from '../hooks/useScreenShare';
 import { VideoGrid } from './VideoGrid';
 import { ScreenShareView } from './ScreenShareView';
+import type { SharedScreen } from './ScreenShareView';
 import { Toolbar } from './Toolbar';
 import { RemoteControlOverlay } from './RemoteControlOverlay';
 import { ToastContainer, useToasts } from './Toast';
@@ -42,10 +43,8 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
   const [isControlling, setIsControlling] = useState(false);
   const [controlTargetId, setControlTargetId] = useState<string | null>(null);
 
-  // Screen share state
-  const [screenSharerPeerId, setScreenSharerPeerId] = useState<string | null>(null);
-  const [sharedStream, setSharedStream] = useState<MediaStream | null>(null);
-  const [sharerName, setSharerName] = useState<string>('');
+  // Screen share state — supports multiple sharers
+  const [sharedScreens, setSharedScreens] = useState<SharedScreen[]>([]);
 
   const handleDataMessage = useCallback((peerId: string, data: unknown) => {
     const msg = data as any;
@@ -53,19 +52,19 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
     // Handle screen share notifications
     if (msg.type === 'screen-share-start') {
       const peer = remotePeersRef.current.find((p) => p.peerId === peerId);
-      setScreenSharerPeerId(peerId);
-      setSharerName(peer?.displayName || 'Peer');
-      // The shared stream is the peer's existing stream (track was replaced)
+      const peerName = peer?.displayName || 'Peer';
       if (peer?.stream) {
-        setSharedStream(peer.stream);
+        setSharedScreens((prev) => {
+          // Don't add duplicate
+          if (prev.some((s) => s.id === peerId)) return prev;
+          return [...prev, { id: peerId, name: peerName, stream: peer.stream! }];
+        });
       }
-      addToast(`${peer?.displayName || 'Peer'} is sharing their screen`, 'info');
+      addToast(`${peerName} is sharing their screen`, 'info');
       return;
     }
     if (msg.type === 'screen-share-stop') {
-      setScreenSharerPeerId(null);
-      setSharedStream(null);
-      setSharerName('');
+      setSharedScreens((prev) => prev.filter((s) => s.id !== peerId));
       addToast('Screen sharing stopped', 'info');
       return;
     }
@@ -143,12 +142,8 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
       setIsControlling(false);
       setControlTargetId(null);
     }
-    if (screenSharerPeerId === peerId) {
-      setScreenSharerPeerId(null);
-      setSharedStream(null);
-      setSharerName('');
-    }
-  }, [removePeer, addToast, remotePeers, controllerId, controlTargetId, screenSharerPeerId]);
+    setSharedScreens((prev) => prev.filter((s) => s.id !== peerId));
+  }, [removePeer, addToast, remotePeers, controllerId, controlTargetId]);
 
   const onSignal = useCallback((fromPeerId: string, signalData: unknown) => {
     handleSignal(fromPeerId, signalData);
@@ -237,12 +232,9 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
             <span>Starting screen share...</span>
           </div>
         )}
-        {screenSharerPeerId ? (
+        {sharedScreens.length > 0 ? (
           <ScreenShareView
-            sharedStream={
-              remotePeers.find((p) => p.peerId === screenSharerPeerId)?.stream || sharedStream || stream!
-            }
-            sharerName={sharerName}
+            sharedScreens={sharedScreens}
             localStream={stream}
             localDisplayName={displayName}
             remotePeers={remotePeers}

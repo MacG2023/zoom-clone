@@ -3,9 +3,14 @@ import { VideoTile } from './VideoTile';
 import type { RemotePeer } from '../hooks/usePeerManager';
 import styles from './ScreenShareView.module.css';
 
+interface SharedScreen {
+  id: string;
+  name: string;
+  stream: MediaStream;
+}
+
 interface ScreenShareViewProps {
-  sharedStream: MediaStream;
-  sharerName: string;
+  sharedScreens: SharedScreen[];
   localStream: MediaStream | null;
   localDisplayName: string;
   remotePeers: RemotePeer[];
@@ -15,8 +20,7 @@ interface ScreenShareViewProps {
 }
 
 export function ScreenShareView({
-  sharedStream,
-  sharerName,
+  sharedScreens,
   localStream,
   localDisplayName,
   remotePeers,
@@ -26,13 +30,36 @@ export function ScreenShareView({
 }: ScreenShareViewProps): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState(true);
+  const [activeScreenId, setActiveScreenId] = useState<string>(sharedScreens[0]?.id || '');
+
+  // Update active screen if it was removed
+  useEffect(() => {
+    if (sharedScreens.length > 0 && !sharedScreens.find((s) => s.id === activeScreenId)) {
+      setActiveScreenId(sharedScreens[0].id);
+    }
+  }, [sharedScreens, activeScreenId]);
+
+  const activeScreen = sharedScreens.find((s) => s.id === activeScreenId) || sharedScreens[0];
 
   useEffect(() => {
+    if (!activeScreen) return;
     setLoading(true);
     if (videoRef.current) {
-      videoRef.current.srcObject = sharedStream;
+      videoRef.current.srcObject = null;
+      videoRef.current.srcObject = activeScreen.stream;
+      videoRef.current.play().catch(() => {});
     }
-  }, [sharedStream]);
+  }, [activeScreen?.id, activeScreen?.stream]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      if (videoRef.current && videoRef.current.videoWidth > 0) {
+        setLoading(false);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handlePlaying = () => {
     setLoading(false);
@@ -57,7 +84,22 @@ export function ScreenShareView({
   return (
     <div className={styles.container}>
       <div className={styles.mainView}>
-        <div className={styles.sharerLabel}>{sharerName} is sharing their screen</div>
+        {sharedScreens.length > 1 && (
+          <div className={styles.tabs}>
+            {sharedScreens.map((screen) => (
+              <button
+                key={screen.id}
+                className={`${styles.tab} ${screen.id === activeScreenId ? styles.activeTab : ''}`}
+                onClick={() => setActiveScreenId(screen.id)}
+              >
+                🖥️ {screen.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {sharedScreens.length === 1 && (
+          <div className={styles.sharerLabel}>🖥️ {activeScreen?.name} is sharing their screen</div>
+        )}
         <div className={styles.videoWrapper}>
           {loading && (
             <div className={styles.loadingOverlay}>
@@ -78,15 +120,18 @@ export function ScreenShareView({
         </div>
       </div>
       <div className={styles.sidebar}>
-        <VideoTile stream={localStream} displayName={localDisplayName} isSelf />
+        <VideoTile stream={localStream} displayName={localDisplayName} isSelf showVideoOnly />
         {remotePeers.map((peer) => (
           <VideoTile
             key={peer.peerId}
             stream={peer.stream}
             displayName={peer.displayName}
+            showVideoOnly
           />
         ))}
       </div>
     </div>
   );
 }
+
+export type { SharedScreen };
