@@ -16,7 +16,6 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'hiddenInset',
     backgroundColor: '#1a1a2e',
   });
 
@@ -25,6 +24,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  mainWindow.webContents.openDevTools();
 }
 
 registerProtocol();

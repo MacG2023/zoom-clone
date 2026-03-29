@@ -10,5 +10,8 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react()],
+    define: {
+      global: 'globalThis',
+    },
   },
 });

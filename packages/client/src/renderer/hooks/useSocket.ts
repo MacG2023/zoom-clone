@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { connectSocket, disconnectSocket, joinRoom, getSocket } from '../lib/socket-client';
+import { connectSocket, disconnectSocket, joinRoom } from '../lib/socket-client';
 import type { PeerInfo } from '@zoom-clone/shared';
 
 interface UseSocketOptions {
@@ -18,7 +18,7 @@ export function useSocket({ meetingId, displayName, onPeerJoined, onPeerLeft, on
   useEffect(() => {
     const socket = connectSocket();
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       setConnected(true);
       if (!joinedRef.current) {
         joinedRef.current = true;
@@ -30,7 +30,14 @@ export function useSocket({ meetingId, displayName, onPeerJoined, onPeerLeft, on
           result.peers.forEach((peer) => onPeerJoined(peer));
         });
       }
-    });
+    };
+
+    // If already connected (e.g. from createRoom), fire immediately
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    socket.on('connect', handleConnect);
 
     socket.on('disconnect', () => {
       setConnected(false);
@@ -50,6 +57,7 @@ export function useSocket({ meetingId, displayName, onPeerJoined, onPeerLeft, on
 
     return () => {
       joinedRef.current = false;
+      socket.off('connect', handleConnect);
       disconnectSocket();
     };
   }, [meetingId, displayName]);
