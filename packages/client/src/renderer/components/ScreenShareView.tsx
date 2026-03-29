@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VideoTile } from './VideoTile';
 import type { RemotePeer } from '../hooks/usePeerManager';
 import styles from './ScreenShareView.module.css';
@@ -25,12 +25,18 @@ export function ScreenShareView({
   isControlling = false,
 }: ScreenShareViewProps): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     if (videoRef.current) {
       videoRef.current.srcObject = sharedStream;
     }
   }, [sharedStream]);
+
+  const handlePlaying = () => {
+    setLoading(false);
+  };
 
   const handleMouseEvent = (e: React.MouseEvent<HTMLVideoElement>) => {
     if (!isControlling || !videoRef.current) return;
@@ -52,15 +58,24 @@ export function ScreenShareView({
     <div className={styles.container}>
       <div className={styles.mainView}>
         <div className={styles.sharerLabel}>{sharerName} is sharing their screen</div>
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className={`${styles.screenVideo} ${isControlling ? styles.controlling : ''}`}
-          onClick={handleMouseEvent}
-          onContextMenu={handleMouseEvent}
-          onMouseMove={isControlling ? handleMouseEvent : undefined}
-        />
+        <div className={styles.videoWrapper}>
+          {loading && (
+            <div className={styles.loadingOverlay}>
+              <div className={styles.spinner} />
+              <span>Loading shared screen...</span>
+            </div>
+          )}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            onPlaying={handlePlaying}
+            className={`${styles.screenVideo} ${isControlling ? styles.controlling : ''}`}
+            onClick={handleMouseEvent}
+            onContextMenu={handleMouseEvent}
+            onMouseMove={isControlling ? handleMouseEvent : undefined}
+          />
+        </div>
       </div>
       <div className={styles.sidebar}>
         <VideoTile stream={localStream} displayName={localDisplayName} isSelf />

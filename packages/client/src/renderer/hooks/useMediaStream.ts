@@ -23,31 +23,19 @@ export function useMediaStream(options?: UseMediaStreamOptions): UseMediaStreamR
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    const constraints: MediaStreamConstraints = {
-      video: initVideo,
-      audio: true,
-    };
-
     navigator.mediaDevices
-      .getUserMedia(constraints)
+      .getUserMedia({ video: true, audio: true })
       .then((s) => {
+        // If user chose camera off, stop the video track immediately to release camera
+        if (!initVideo) {
+          s.getVideoTracks().forEach((t) => t.stop());
+        }
         s.getAudioTracks().forEach((t) => (t.enabled = initAudio));
         streamRef.current = s;
         setStream(s);
       })
       .catch((err) => {
         console.error('Failed to get media:', err);
-        // Try audio-only if video failed
-        if (initVideo) {
-          navigator.mediaDevices
-            .getUserMedia({ video: false, audio: true })
-            .then((s) => {
-              s.getAudioTracks().forEach((t) => (t.enabled = initAudio));
-              streamRef.current = s;
-              setStream(s);
-            })
-            .catch(() => {});
-        }
       });
 
     return () => {
@@ -59,22 +47,23 @@ export function useMediaStream(options?: UseMediaStreamOptions): UseMediaStreamR
     if (!streamRef.current) return;
 
     if (videoEnabled) {
-      // Turn off: stop and remove video track (releases camera)
-      streamRef.current.getVideoTracks().forEach((t) => {
-        t.stop();
-        streamRef.current!.removeTrack(t);
-      });
+      // Turn off: stop video track to release camera hardware
+      streamRef.current.getVideoTracks().forEach((t) => t.stop());
       setVideoEnabled(false);
     } else {
-      // Turn on: get a new video track and add it
+      // Turn on: get a new video track, replace the stopped one
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
         const newTrack = newStream.getVideoTracks()[0];
+
+        // Remove old stopped video tracks
+        streamRef.current.getVideoTracks().forEach((t) => {
+          streamRef.current!.removeTrack(t);
+        });
+
+        // Add new track to existing stream
         streamRef.current.addTrack(newTrack);
         setVideoEnabled(true);
-        // Force re-render by updating stream reference
-        setStream(new MediaStream(streamRef.current.getTracks()));
-        streamRef.current = new MediaStream(streamRef.current.getTracks());
       } catch (err) {
         console.error('Failed to restart camera:', err);
       }

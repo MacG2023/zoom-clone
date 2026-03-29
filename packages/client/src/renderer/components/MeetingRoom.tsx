@@ -124,7 +124,7 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
   remotePeersRef.current = remotePeers;
   peerManagerRef.current = peerManager;
 
-  const { isSharing, showPicker, openPicker, closePicker, selectSource, stopSharing } = useScreenShare(peerManager, stream);
+  const { isSharing, isLoading: isShareLoading, showPicker, openPicker, closePicker, selectSource, stopSharing } = useScreenShare(peerManager, stream);
 
   const onPeerJoined = useCallback((peer: PeerInfo) => {
     addPeer(peer, true);
@@ -231,6 +231,12 @@ export function MeetingRoom({ meetingId, displayName, initialVideo = true, initi
   return (
     <div className={styles.container}>
       <div className={styles.videoArea}>
+        {isShareLoading && (
+          <div className={styles.shareLoading}>
+            <div className={styles.spinner} />
+            <span>Starting screen share...</span>
+          </div>
+        )}
         {screenSharerPeerId ? (
           <ScreenShareView
             sharedStream={

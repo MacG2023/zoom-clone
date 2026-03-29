@@ -3,6 +3,7 @@ import type { PeerManager } from '../lib/peer-manager';
 
 interface UseScreenShareResult {
   isSharing: boolean;
+  isLoading: boolean;
   showPicker: boolean;
   openPicker: () => void;
   closePicker: () => void;
@@ -15,6 +16,7 @@ export function useScreenShare(
   originalStream: MediaStream | null
 ): UseScreenShareResult {
   const [isSharing, setIsSharing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const screenStreamRef = useRef<MediaStream | null>(null);
 
@@ -30,6 +32,7 @@ export function useScreenShare(
   const selectSource = useCallback(async (sourceId: string) => {
     if (!peerManager) return;
     setShowPicker(false);
+    setIsLoading(true);
 
     try {
       const screenStream = await navigator.mediaDevices.getUserMedia({
@@ -55,8 +58,10 @@ export function useScreenShare(
       };
 
       setIsSharing(true);
+      setIsLoading(false);
     } catch (err) {
       console.error('Failed to share screen:', err);
+      setIsLoading(false);
     }
   }, [peerManager, originalStream]);
 
@@ -79,5 +84,5 @@ export function useScreenShare(
     setIsSharing(false);
   }, [peerManager, originalStream]);
 
-  return { isSharing, showPicker, openPicker, closePicker, selectSource, stopSharing };
+  return { isSharing, isLoading, showPicker, openPicker, closePicker, selectSource, stopSharing };
 }
