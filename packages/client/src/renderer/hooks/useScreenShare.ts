@@ -48,6 +48,7 @@ export function useScreenShare(
       const screenTrack = screenStream.getVideoTracks()[0];
 
       peerManager.replaceTrackOnAll(screenTrack);
+      peerManager.broadcastData({ type: 'screen-share-start' });
 
       screenTrack.onended = () => {
         stopSharing();
@@ -65,10 +66,13 @@ export function useScreenShare(
       screenStreamRef.current = null;
     }
 
-    if (peerManager && originalStream) {
-      const cameraTrack = originalStream.getVideoTracks()[0];
-      if (cameraTrack) {
-        peerManager.replaceTrackOnAll(cameraTrack);
+    if (peerManager) {
+      peerManager.broadcastData({ type: 'screen-share-stop' });
+      if (originalStream) {
+        const cameraTrack = originalStream.getVideoTracks()[0];
+        if (cameraTrack) {
+          peerManager.replaceTrackOnAll(cameraTrack);
+        }
       }
     }
 

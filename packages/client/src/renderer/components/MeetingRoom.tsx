@@ -46,7 +46,27 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
   const [sharerName, setSharerName] = useState<string>('');
 
   const handleDataMessage = useCallback((peerId: string, data: unknown) => {
-    const msg = data as RemoteControlMessage;
+    const msg = data as any;
+
+    // Handle screen share notifications
+    if (msg.type === 'screen-share-start') {
+      const peer = remotePeersRef.current.find((p) => p.peerId === peerId);
+      setScreenSharerPeerId(peerId);
+      setSharerName(peer?.displayName || 'Peer');
+      // The shared stream is the peer's existing stream (track was replaced)
+      if (peer?.stream) {
+        setSharedStream(peer.stream);
+      }
+      addToast(`${peer?.displayName || 'Peer'} is sharing their screen`, 'info');
+      return;
+    }
+    if (msg.type === 'screen-share-stop') {
+      setScreenSharerPeerId(null);
+      setSharedStream(null);
+      setSharerName('');
+      addToast('Screen sharing stopped', 'info');
+      return;
+    }
 
     switch (msg.type) {
       case 'request-control':
@@ -121,7 +141,12 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
       setIsControlling(false);
       setControlTargetId(null);
     }
-  }, [removePeer, addToast, remotePeers, controllerId, controlTargetId]);
+    if (screenSharerPeerId === peerId) {
+      setScreenSharerPeerId(null);
+      setSharedStream(null);
+      setSharerName('');
+    }
+  }, [removePeer, addToast, remotePeers, controllerId, controlTargetId, screenSharerPeerId]);
 
   const onSignal = useCallback((fromPeerId: string, signalData: unknown) => {
     handleSignal(fromPeerId, signalData);
@@ -206,7 +231,11 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
       <div className={styles.videoArea}>
         {screenSharerPeerId || isSharing ? (
           <ScreenShareView
-            sharedStream={sharedStream || stream!}
+            sharedStream={
+              isSharing
+                ? stream!
+                : remotePeers.find((p) => p.peerId === screenSharerPeerId)?.stream || sharedStream || stream!
+            }
             sharerName={isSharing ? displayName : sharerName}
             localStream={stream}
             localDisplayName={displayName}
