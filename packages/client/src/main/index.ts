@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, screen } from 'electron';
 import path from 'path';
 import { registerProtocol, extractMeetingId } from './protocol';
+import { setupRemoteControlExecutor } from './remote-control-executor';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -53,6 +54,7 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(createWindow);
+setupRemoteControlExecutor();
 
 app.on('window-all-closed', () => {
   app.quit();
