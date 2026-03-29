@@ -1,0 +1,135 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+  position: relative;
+}
+
+.backBtn {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+}
+
+.backBtn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.content {
+  display: flex;
+  gap: 3rem;
+  align-items: center;
+}
+
+.preview {
+  position: relative;
+  width: 400px;
+  height: 300px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.videoOff {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.previewControls {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.75rem;
+}
+
+.toggleBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggleBtn.off {
+  background: var(--danger);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 280px;
+}
+
+.form h2 {
+  font-size: 1.5rem;
+}
+
+.meetingInfo {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.meetingInfo span {
+  font-family: monospace;
+  color: var(--accent);
+}
+
+.input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  border-radius: 8px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.joinBtn {
+  background: var(--accent);
+  color: white;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.joinBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.joinBtn:disabled {
+  opacity: 0.5;
+}
