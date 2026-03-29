@@ -17,6 +17,27 @@ type PeerEventCallback = {
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  // Free TURN servers from Open Relay (metered.ca)
+  {
+    urls: 'turn:a.relay.metered.ca:80',
+    username: 'e8dd65b92f6de1da0c7b3c70',
+    credential: 'uWdEfsPqS3OUFHGX',
+  },
+  {
+    urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+    username: 'e8dd65b92f6de1da0c7b3c70',
+    credential: 'uWdEfsPqS3OUFHGX',
+  },
+  {
+    urls: 'turn:a.relay.metered.ca:443',
+    username: 'e8dd65b92f6de1da0c7b3c70',
+    credential: 'uWdEfsPqS3OUFHGX',
+  },
+  {
+    urls: 'turns:a.relay.metered.ca:443',
+    username: 'e8dd65b92f6de1da0c7b3c70',
+    credential: 'uWdEfsPqS3OUFHGX',
+  },
 ];
 
 export class PeerManager {
@@ -71,8 +92,17 @@ export class PeerManager {
       }
     };
 
+    pc.onicegatheringstatechange = () => {
+      console.log(`[WebRTC] ICE gathering state for ${peerId}:`, pc.iceGatheringState);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE connection state for ${peerId}:`, pc.iceConnectionState);
+    };
+
     // Remote stream
     pc.ontrack = (event) => {
+      console.log(`[WebRTC] Got remote track from ${peerId}:`, event.track.kind, event.streams.length);
       if (event.streams[0]) {
         connection.stream = event.streams[0];
         this.callbacks.onStream(peerId, event.streams[0]);
@@ -81,6 +111,7 @@ export class PeerManager {
 
     // Connection state
     pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection state for ${peerId}:`, pc.connectionState);
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         this.peers.delete(peerId);
         this.callbacks.onClose(peerId);
