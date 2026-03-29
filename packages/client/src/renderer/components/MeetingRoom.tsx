@@ -26,11 +26,13 @@ import styles from './MeetingRoom.module.css';
 interface MeetingRoomProps {
   meetingId: string;
   displayName: string;
+  initialVideo?: boolean;
+  initialAudio?: boolean;
   onLeave: () => void;
 }
 
-export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProps): JSX.Element {
-  const { stream, videoEnabled, audioEnabled, toggleVideo, toggleAudio } = useMediaStream();
+export function MeetingRoom({ meetingId, displayName, initialVideo = true, initialAudio = true, onLeave }: MeetingRoomProps): JSX.Element {
+  const { stream, videoEnabled, audioEnabled, toggleVideo, toggleAudio } = useMediaStream({ initialVideo, initialAudio });
   const { toasts, addToast, dismissToast } = useToasts();
 
   // Remote control state
@@ -229,14 +231,12 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
   return (
     <div className={styles.container}>
       <div className={styles.videoArea}>
-        {screenSharerPeerId || isSharing ? (
+        {screenSharerPeerId ? (
           <ScreenShareView
             sharedStream={
-              isSharing
-                ? stream!
-                : remotePeers.find((p) => p.peerId === screenSharerPeerId)?.stream || sharedStream || stream!
+              remotePeers.find((p) => p.peerId === screenSharerPeerId)?.stream || sharedStream || stream!
             }
-            sharerName={isSharing ? displayName : sharerName}
+            sharerName={sharerName}
             localStream={stream}
             localDisplayName={displayName}
             remotePeers={remotePeers}
@@ -273,6 +273,8 @@ export function MeetingRoom({ meetingId, displayName, onLeave }: MeetingRoomProp
         videoEnabled={videoEnabled}
         audioEnabled={audioEnabled}
         isScreenSharing={isSharing}
+        participantCount={remotePeers.length + 1}
+        meetingId={meetingId}
         onToggleVideo={toggleVideo}
         onToggleAudio={toggleAudio}
         onToggleScreenShare={handleToggleScreenShare}

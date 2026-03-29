@@ -6,7 +6,7 @@ import { MeetingRoom } from './components/MeetingRoom';
 type Screen =
   | { type: 'home' }
   | { type: 'pre-join'; meetingId: string; isHost: boolean }
-  | { type: 'meeting'; meetingId: string; displayName: string };
+  | { type: 'meeting'; meetingId: string; displayName: string; initialVideo: boolean; initialAudio: boolean };
 
 export function App(): JSX.Element {
   const [screen, setScreen] = useState<Screen>({ type: 'home' });
@@ -25,8 +25,8 @@ export function App(): JSX.Element {
     setScreen({ type: 'pre-join', meetingId, isHost: false });
   }, []);
 
-  const handleReadyToJoin = useCallback((displayName: string, meetingId: string) => {
-    setScreen({ type: 'meeting', meetingId, displayName });
+  const handleReadyToJoin = useCallback((displayName: string, meetingId: string, videoEnabled: boolean, audioEnabled: boolean) => {
+    setScreen({ type: 'meeting', meetingId, displayName, initialVideo: videoEnabled, initialAudio: audioEnabled });
   }, []);
 
   const handleLeaveMeeting = useCallback(() => {
@@ -55,6 +55,8 @@ export function App(): JSX.Element {
         <MeetingRoom
           meetingId={screen.meetingId}
           displayName={screen.displayName}
+          initialVideo={screen.initialVideo}
+          initialAudio={screen.initialAudio}
           onLeave={handleLeaveMeeting}
         />
       );

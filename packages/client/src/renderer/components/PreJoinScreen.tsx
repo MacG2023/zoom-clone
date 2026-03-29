@@ -4,7 +4,7 @@ import styles from './PreJoinScreen.module.css';
 interface PreJoinScreenProps {
   meetingId: string;
   isHost: boolean;
-  onJoin: (displayName: string, meetingId: string) => void;
+  onJoin: (displayName: string, meetingId: string, videoEnabled: boolean, audioEnabled: boolean) => void;
   onBack: () => void;
 }
 
@@ -51,7 +51,7 @@ export function PreJoinScreen({ meetingId, isHost, onJoin, onBack }: PreJoinScre
   const handleJoin = () => {
     if (displayName.trim()) {
       stream?.getTracks().forEach((track) => track.stop());
-      onJoin(displayName.trim(), meetingId);
+      onJoin(displayName.trim(), meetingId, videoEnabled, audioEnabled);
     }
   };
 
