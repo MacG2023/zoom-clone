@@ -1,0 +1,17 @@
+{
+  "appId": "com.zoomclone.app",
+  "productName": "ZoomClone",
+  "protocols": {
+    "name": "ZoomClone Meeting",
+    "schemes": ["zoomclone"]
+  },
+  "win": {
+    "target": "nsis"
+  },
+  "mac": {
+    "target": "dmg"
+  },
+  "linux": {
+    "target": "AppImage"
+  }
+}
