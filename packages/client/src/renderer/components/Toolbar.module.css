@@ -1,0 +1,53 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--toolbar-bg);
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.btn.off {
+  background: var(--danger);
+  color: white;
+}
+
+.btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.btn.leave {
+  background: var(--danger);
+  color: white;
+  margin-left: 2rem;
+}
+
+.btn.leave:hover {
+  background: #c0392b;
+}
+
+.icon {
+  font-size: 1.3rem;
+}
+
+.label {
+  font-size: 0.7rem;
+}
