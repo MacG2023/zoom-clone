@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.0",
     "@zoom-clone/shared": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
