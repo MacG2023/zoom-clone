@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: zoom-clone-server
+    runtime: node
+    rootDir: packages/server
+    buildCommand: npm install
+    startCommand: npx tsx src/index.ts
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production

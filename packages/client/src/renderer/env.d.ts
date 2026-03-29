@@ -5,6 +5,14 @@ interface ElectronAPI {
   getScreenSize: () => Promise<{ width: number; height: number }>;
 }
 
+interface ImportMetaEnv {
+  readonly VITE_SERVER_URL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 declare global {
   interface Window {
     electronAPI?: ElectronAPI;

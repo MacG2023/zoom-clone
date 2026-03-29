@@ -19,13 +19,12 @@ function createWindow(): void {
     backgroundColor: '#1a1a2e',
   });
 
-  const rendererUrl = process.env.ELECTRON_RENDERER_URL || 'http://localhost:5173';
-  mainWindow.loadURL(rendererUrl).catch(() => {
-    // Dev server not running, try built file
-    mainWindow!.loadFile(path.join(__dirname, '../renderer/index.html'));
-  });
-
-  mainWindow.webContents.openDevTools();
+  if (process.env.ELECTRON_RENDERER_URL) {
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  }
 }
 
 registerProtocol();
@@ -37,15 +36,26 @@ app.on('open-url', (_event, url) => {
   }
 });
 
-// Single-instance lock disabled for local multi-instance testing
-// const gotTheLock = app.requestSingleInstanceLock();
-// if (!gotTheLock) {
-//   app.quit();
-// }
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const url = commandLine.find((arg) => arg.startsWith('zoomclone://'));
+    if (url) {
+      const meetingId = extractMeetingId(url);
+      if (meetingId && mainWindow) {
+        mainWindow.webContents.send('deep-link', meetingId);
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    }
+  });
 
-app.whenReady().then(() => {
-  createWindow();
-});
+  app.whenReady().then(() => {
+    createWindow();
+  });
+}
 setupRemoteControlExecutor();
 
 app.on('window-all-closed', () => {

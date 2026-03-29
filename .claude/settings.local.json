@@ -22,7 +22,11 @@
       "Bash(ELECTRON_RENDERER_URL=http://localhost:5174 npx electron-vite dev)",
       "Bash(ELECTRON_RENDERER_URL=http://localhost:5173 npx electron --user-data-dir=/tmp/zoom-clone-2 out/main/index.js)",
       "Bash(npx electron:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(cd:*)",
+      "Bash(npx electron-builder:*)",
+      "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win --config electron-builder.json --dir 2>&1)",
+      "Bash(ls:*)"
     ]
   }
 }
